@@ -13,10 +13,11 @@ type LSM interface {
 	Delete(key types.Bytes)
 	Get(key types.Bytes) (types.Bytes, bool)
 	Sync()
+	Scan() Iterator
 	Transaction()
 }
 
-type miniLsm struct {
+type lsm struct {
 	state sync.Mutex
 	rw    sync.RWMutex
 
@@ -25,38 +26,41 @@ type miniLsm struct {
 	memTableId  atomic.Int32
 	currTable   memtable.MemTable
 	immutTables []memtable.MemTable
+
+	iterCount int
 }
 
 func New(options ...Option) LSM {
-	return &miniLsm{
+	return &lsm{
 		opts:        getOptions(options...),
 		memTableId:  atomic.Int32{},
 		immutTables: make([]memtable.MemTable, 0),
 		state:       sync.Mutex{},
 		rw:          sync.RWMutex{},
 		currTable:   memtable.New(0),
+		iterCount:   0,
 	}
 }
 
-func (m *miniLsm) Delete(key types.Bytes) {
+func (m *lsm) Delete(key types.Bytes) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
 	m.markDeleted(key)
 }
 
-func (m *miniLsm) markDeleted(key types.Bytes) {
+func (m *lsm) markDeleted(key types.Bytes) {
 	m.currTable.Put(key, make(types.Bytes, 0))
 }
 
-func (m *miniLsm) Get(key types.Bytes) (types.Bytes, bool) {
+func (m *lsm) Get(key types.Bytes) (types.Bytes, bool) {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
 	return m.get(key)
 }
 
-func (m *miniLsm) get(key types.Bytes) (types.Bytes, bool) {
+func (m *lsm) get(key types.Bytes) (types.Bytes, bool) {
 	if val, found := m.getFromTable(m.currTable, key); found {
 		return val, true
 	}
@@ -68,7 +72,7 @@ func (m *miniLsm) get(key types.Bytes) (types.Bytes, bool) {
 	return nil, false
 }
 
-func (m *miniLsm) getFromTable(table memtable.MemTable, key types.Bytes) (types.Bytes, bool) {
+func (m *lsm) getFromTable(table memtable.MemTable, key types.Bytes) (types.Bytes, bool) {
 	val, found := table.Get(key)
 	if !found {
 		return nil, false
@@ -81,7 +85,7 @@ func (m *miniLsm) getFromTable(table memtable.MemTable, key types.Bytes) (types.
 	return val, true
 }
 
-func (m *miniLsm) getFromPastTables(key types.Bytes) (types.Bytes, bool) {
+func (m *lsm) getFromPastTables(key types.Bytes) (types.Bytes, bool) {
 	for _, table := range m.immutTables {
 		if val, found := m.getFromTable(table, key); found {
 			return val, true
@@ -91,7 +95,7 @@ func (m *miniLsm) getFromPastTables(key types.Bytes) (types.Bytes, bool) {
 	return nil, false
 }
 
-func (m *miniLsm) Put(key types.Bytes, value types.Bytes) {
+func (m *lsm) Put(key types.Bytes, value types.Bytes) {
 	m.rw.RLock()
 
 	m.currTable.Put(key, value)
@@ -101,7 +105,7 @@ func (m *miniLsm) Put(key types.Bytes, value types.Bytes) {
 	m.tryFreeze(curSize)
 }
 
-func (m *miniLsm) tryFreeze(tableSize int) {
+func (m *lsm) tryFreeze(tableSize int) {
 	if tableSize >= m.opts.MaxTableSize {
 		// only one thread should be freezing memtable
 		m.state.Lock()
@@ -116,16 +120,16 @@ func (m *miniLsm) tryFreeze(tableSize int) {
 			return
 		}
 
-		// we use 2 separate mutexes because
-		// - state mutex does not affect other read requests off LSM
-		// - state mutex make sure one thread should be freezing memtable at once, or else empty ones will be created
-		// - use rw locks to make sure we dont unnecessary block read requests while checking table sizes
-		// - use rw write lock when it's time we actually swap out the new memtable
+		// 2 separate mutexes because
+		// - State mutex does not affect other read LSM requests
+		// - State mutex make sure one thread should be freezing memtable at once, or else empty ones will be created
+		// - Use write lock here, it will unnecessary block read requests, we are not modifing anything
+		// - Use write lock when it's time to actually swap out the new memtable
 		m.freeze()
 	}
 }
 
-func (m *miniLsm) freeze() {
+func (m *lsm) freeze() {
 	mt := memtable.New(int(m.memTableId.Add(1)))
 	m.rw.Lock()
 	defer m.rw.Unlock()
@@ -134,10 +138,26 @@ func (m *miniLsm) freeze() {
 	m.currTable = mt
 }
 
-func (m *miniLsm) Sync() {
+func (m *lsm) Sync() {
 	panic("unimplemented")
 }
 
-func (m *miniLsm) Transaction() {
+func (m *lsm) Transaction() {
 	panic("unimplemented")
+}
+
+func (m *lsm) Scan() Iterator {
+	m.rw.RLock()
+	defer m.rw.RUnlock()
+
+	return m.scan()
+}
+
+func (m *lsm) scan() Iterator {
+	tables := make([]memtable.MemTable, 0, len(m.immutTables)+1)
+
+	tables = append(tables, m.immutTables...)
+	tables = append(tables, m.currTable)
+
+	return NewMergeIter(tables)
 }

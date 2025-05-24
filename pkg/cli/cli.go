@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ttn-nguyen42/go-mini-lsm/internal/lsm"
+	"github.com/ttn-nguyen42/go-mini-lsm/pkg/lsm"
 )
 
 func Run() {

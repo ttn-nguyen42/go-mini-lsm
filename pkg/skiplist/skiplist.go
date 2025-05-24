@@ -2,7 +2,6 @@ package skiplist
 
 import (
 	"fmt"
-	"iter"
 	"math/rand"
 	"strings"
 	"sync"
@@ -15,7 +14,7 @@ type SkipList[K, V any] interface {
 	Delete(key K) bool
 	Size() int
 	Put(key K, value V)
-	Nodes() iter.Seq2[K, V]
+	Scan() Iterator[K, V]
 	String() string
 }
 
@@ -94,10 +93,6 @@ func (s *skipListImpl[K, V]) Put(key K, value V) {
 	defer s.lock.Unlock()
 
 	s.put(key, value)
-}
-
-func (s *skipListImpl[K, V]) Nodes() iter.Seq2[K, V] {
-	return s.itrNodes()
 }
 
 func (s *skipListImpl[K, V]) isEmpty() bool {
@@ -208,24 +203,6 @@ func (s *skipListImpl[K, V]) getClosest(start *node[K, V], key K, level int) *no
 	}
 
 	return iter
-}
-
-func (s *skipListImpl[K, V]) itrNodes() iter.Seq2[K, V] {
-	return iter.Seq2[K, V](func(yield func(K, V) bool) {
-		s.lock.RLock()
-		defer s.lock.RUnlock()
-
-		iter := s.head.getCell(0).next
-
-		for iter != nil && iter != s.tail {
-			cell := iter.getCell(0)
-			if !yield(iter.key, iter.value) {
-				break
-			}
-
-			iter = cell.next
-		}
-	})
 }
 
 func (s *skipListImpl[K, V]) String() string {

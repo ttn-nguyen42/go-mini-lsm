@@ -12,6 +12,8 @@ type MemTable interface {
 	Put(key, value types.Bytes)
 	Get(key types.Bytes) (types.Bytes, bool)
 	Size() int
+	Scan() Iterator
+	Id() int
 }
 
 type memTable struct {
@@ -49,4 +51,12 @@ func (m *memTable) Put(key types.Bytes, value types.Bytes) {
 
 func (m *memTable) Size() int {
 	return int(m.size.Load())
+}
+
+func (m *memTable) Scan() Iterator {
+	return newIter(m)
+}
+
+func (m *memTable) Id() int {
+	return m.id
 }

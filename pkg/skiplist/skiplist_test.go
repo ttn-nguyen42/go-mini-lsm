@@ -81,9 +81,15 @@ func TestIterator(t *testing.T) {
 
 	expected := []int{1, 2, 3, 5, 10}
 	var result []int
-	for key, _ := range sl.Nodes() {
-		result = append(result, key)
+
+	iter := sl.Scan()
+	defer iter.Close()
+
+	for iter.HasNext() {
+		result = append(result, iter.Key())
+		iter.Next()
 	}
+
 	assert.Equal(t, expected, result)
 }
 
