@@ -1,6 +1,7 @@
 package lsm
 
 import (
+	"log"
 	"sync"
 	"sync/atomic"
 
@@ -136,6 +137,8 @@ func (m *lsm) freeze() {
 
 	m.immutTables = append(m.immutTables, m.currTable)
 	m.currTable = mt
+
+	log.Printf("Memtable %d frozen, total immutable tables: %d", m.currTable.Id(), len(m.immutTables))
 }
 
 func (m *lsm) Sync() {
@@ -159,5 +162,5 @@ func (m *lsm) scan() Iterator {
 	tables = append(tables, m.immutTables...)
 	tables = append(tables, m.currTable)
 
-	return NewMergeIter(tables)
+	return NewIter(tables)
 }

@@ -25,6 +25,7 @@ Available commands:
 3. put <key> <value>: Store a key-value pair
 4. get <key>: Retrieve the value for a given key
 5. del <key>: Delete a key-value pair
+6. scan: Scan all key-value pairs
 `
 
 	_, err := c.buf.Write([]byte(helpText))

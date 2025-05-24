@@ -37,6 +37,7 @@ func (c *cli) register() {
 	c.cmds = append(c.cmds, &putCmd{lsm: c.lsm, buf: c.buf})
 	c.cmds = append(c.cmds, &getCmd{lsm: c.lsm, buf: c.buf})
 	c.cmds = append(c.cmds, &delCmd{lsm: c.lsm, buf: c.buf})
+	c.cmds = append(c.cmds, &scanCmd{lsm: c.lsm, buf: c.buf})
 }
 
 func (c *cli) Loop() {
@@ -51,7 +52,7 @@ func (c *cli) Loop() {
 		if !scanner.Scan() {
 			break
 		}
-		
+
 		line := strings.TrimSpace(scanner.Text())
 		args := strings.Fields(line)
 		if len(args) == 0 {
