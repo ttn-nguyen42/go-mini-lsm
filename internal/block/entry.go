@@ -77,10 +77,6 @@ func (e *entry) decode(data []byte) error {
 	copy(e.value, data[offset:offset+int(e.valueLen)])
 	offset += int(e.valueLen)
 
-	if offset != len(data) {
-		return fmt.Errorf("data has extra bytes: expected %d, got %d", offset, len(data))
-	}
-
 	return nil
 }
 

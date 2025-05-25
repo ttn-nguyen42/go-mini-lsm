@@ -8,7 +8,7 @@ import (
 )
 
 func TestBlockEntries(t *testing.T) {
-	b := Builder(WithBlockSize(1024))
+	b := NewBuilder(WithBlockSize(1024))
 	b.Add(types.Bytes("foo"), types.Bytes("bar"))
 	b.Add(types.Bytes("baz"), types.Bytes("qux"))
 	blk := b.Build()

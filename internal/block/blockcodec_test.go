@@ -8,7 +8,7 @@ import (
 )
 
 func TestBlockEncodeDecodeRoundTrip(t *testing.T) {
-	b := Builder(WithBlockSize(1024))
+	b := NewBuilder(WithBlockSize(1024))
 	b.Add(types.Bytes("foo"), types.Bytes("bar"))
 	b.Add(types.Bytes("baz"), types.Bytes("qux"))
 	blk := b.Build()
@@ -33,7 +33,7 @@ func TestBlockDecodeCorruptData(t *testing.T) {
 	assert.Error(t, err)
 
 	// Odd offsets length
-	b := Builder(WithBlockSize(1024))
+	b := NewBuilder(WithBlockSize(1024))
 	b.Add(types.Bytes("foo"), types.Bytes("bar"))
 	blk := b.Build()
 	encoded, _ := Encode(&blk)

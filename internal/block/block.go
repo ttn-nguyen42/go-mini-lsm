@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+var ErrBlockEmpty error = fmt.Errorf("block empty")
+
 type Block struct {
 	data    []byte
 	offsets []uint16
@@ -49,4 +51,36 @@ func (b *Block) Entries() []Entry {
 	}
 
 	return entries
+}
+
+func (b *Block) First() (Entry, error) {
+	e, err := b.first()
+	if err != nil {
+		return Entry{}, nil
+	}
+
+	return Entry{Key: e.key, Value: e.value, Size: e.size()}, nil
+}
+
+func (b *Block) first() (*entry, error) {
+	var e entry
+	if len(b.offsets) == 0 {
+		return nil, ErrBlockEmpty
+	}
+
+	first := b.offsets[0]
+	end := len(b.data)
+	if len(b.offsets) > 0 {
+		end = int(b.offsets[1])
+	}
+
+	if err := e.decode(b.data[first:end]); err != nil {
+		return nil, err
+	}
+
+	return &e, nil
+}
+
+func (b *Block) Scan() Iterator {
+	return newIter(b)
 }

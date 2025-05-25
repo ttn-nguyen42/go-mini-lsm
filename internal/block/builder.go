@@ -4,16 +4,16 @@ import (
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
 
-type BlockBuilder struct {
+type Builder struct {
 	offsets   []uint16
 	data      []byte
 	blockSize uint32
 }
 
-func Builder(options ...BuilderOption) *BlockBuilder {
+func NewBuilder(options ...BuilderOption) *Builder {
 	opts := getBuilderOpts(options...)
 
-	return &BlockBuilder{
+	return &Builder{
 		blockSize: opts.BlockSize,
 		data:      make([]byte, 0, opts.BlockSize),
 		offsets:   make([]uint16, 0),
@@ -21,7 +21,7 @@ func Builder(options ...BuilderOption) *BlockBuilder {
 }
 
 // Add adds a key-value pair into the builder. Return false when the block is full
-func (b *BlockBuilder) Add(key types.Bytes, value types.Bytes) bool {
+func (b *Builder) Add(key types.Bytes, value types.Bytes) bool {
 	etr := getEntry(key, value)
 
 	// curSize + entry size + uint16(offset)
@@ -35,16 +35,16 @@ func (b *BlockBuilder) Add(key types.Bytes, value types.Bytes) bool {
 	return true
 }
 
-func (b BlockBuilder) curSize() int {
+func (b Builder) curSize() int {
 	// uint16(# of entries) + uint16(offsets) * (# of entries) + data
 	return 2 + len(b.offsets)*2 + len(b.data)
 }
 
-func (b BlockBuilder) IsEmpty() bool {
+func (b Builder) IsEmpty() bool {
 	return len(b.offsets) == 0
 }
 
-func (b BlockBuilder) Build() Block {
+func (b Builder) Build() Block {
 	blk := Block{
 		data:    b.data,
 		offsets: b.offsets,

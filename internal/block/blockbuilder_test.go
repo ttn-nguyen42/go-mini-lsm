@@ -8,7 +8,7 @@ import (
 )
 
 func TestBlockBuilderAddAndBuild(t *testing.T) {
-	b := Builder(WithBlockSize(1024))
+	b := NewBuilder(WithBlockSize(1024))
 	assert.True(t, b.IsEmpty())
 
 	ok := b.Add(types.Bytes("foo"), types.Bytes("bar"))
@@ -24,7 +24,7 @@ func TestBlockBuilderAddAndBuild(t *testing.T) {
 }
 
 func TestBlockBuilderAddFull(t *testing.T) {
-	b := Builder(WithBlockSize(32))
+	b := NewBuilder(WithBlockSize(32))
 	ok := b.Add(types.Bytes("a"), types.Bytes("b"))
 	assert.True(t, ok)
 	// This should fill the block
