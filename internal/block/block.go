@@ -56,7 +56,7 @@ func (b *Block) Entries() []Entry {
 func (b *Block) First() (Entry, error) {
 	e, err := b.first()
 	if err != nil {
-		return Entry{}, nil
+		return Entry{}, err
 	}
 
 	return Entry{Key: e.key, Value: e.value, Size: e.size()}, nil
@@ -70,7 +70,7 @@ func (b *Block) first() (*entry, error) {
 
 	first := b.offsets[0]
 	end := len(b.data)
-	if len(b.offsets) > 0 {
+	if len(b.offsets) > 1 {
 		end = int(b.offsets[1])
 	}
 

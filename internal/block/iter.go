@@ -30,9 +30,9 @@ func newIter(blk *Block) Iterator {
 	if err != nil {
 		if errors.Is(err, ErrBlockEmpty) {
 			first = nil
+		} else {
+			panic("error getting first block entry: " + err.Error())
 		}
-
-		panic("error getting first block entry: " + err.Error())
 	}
 
 	return &iter{
@@ -69,9 +69,9 @@ func (i *iter) Next() error {
 }
 
 func (i *iter) Seek(idx int) error {
-	if i.idx >= len(i.blk.offsets) {
+	if idx >= len(i.blk.offsets) {
 		i.entr = nil
-		return ErrIterEnd
+		return nil
 	}
 
 	offset := i.blk.offsets[idx]
@@ -108,6 +108,11 @@ func (i *iter) search(key types.Bytes) error {
 			return err
 		}
 
+		if !i.HasNext() {
+			// Defensive: this should not happen, but if it does, break to avoid panic
+			break
+		}
+
 		switch bytes.Compare(i.entr.key, key) {
 		case 0:
 			return nil
@@ -117,6 +122,10 @@ func (i *iter) search(key types.Bytes) error {
 			lowIdx = midIdx + 1
 		}
 	}
-	
+
+	if lowIdx >= len(i.blk.offsets) {
+		return i.Seek(len(i.blk.offsets) - 1)
+	}
+
 	return i.Seek(lowIdx)
 }
