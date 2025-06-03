@@ -7,85 +7,116 @@ import (
 	"hash/crc32"
 
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/ttn-nguyen42/go-mini-lsm/internal/block"
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
 
+var ErrClosed = fmt.Errorf("table closed")
+
 type SortedTable struct {
-	Id       uint32
-	FirstKey types.Bytes
-	LastKey  types.Bytes
-	Filter   *bloom.BloomFilter
-	Blocks   []BlockMeta
-	File     *FileObject
+	id              uint32
+	firstKey        types.Bytes
+	lastKey         types.Bytes
+	filter          *bloom.BloomFilter
+	blocks          []BlockMeta
+	file            *FileObject
+	blockMetaOffset int
+
+	closed bool
 }
 
-// +-----------+-----------------+------------+-----------------+-------------------------+-------------------+--------------+--------------------+----------------+-----------------+
-// | block #0  |  checksum (4b)  |  block #1  |  checksum (4b)  |  # of met. blocks (4b)  |  metadata blocks  |  CRC32 (4b)  |  met. offset (4b)  |  bloom filter  |  bf offset (4b) |
-// +-----------+-----------------+------------+-----------------+-------------------------+-------------------+--------------+--------------------+----------------+-----------------+
-func Decode(id uint32, f *FileObject) (*SortedTable, error) {
-	size := f.Size()
-	buf := make([]byte, size)
+func (s *SortedTable) Close() error {
+	s.closed = true
+	return s.file.Close()
+}
 
-	_, err := f.ReadAt(buf[size-4:], int64(size-4))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read bloom filter offset from file: %s", err)
+func (s *SortedTable) File() *FileObject {
+	return s.file
+}
+
+func (s *SortedTable) Id() uint32 {
+	return s.id
+}
+
+func (s *SortedTable) FirstKey() types.Bytes {
+	return s.firstKey
+}
+
+func (s *SortedTable) LastKey() types.Bytes {
+	return s.lastKey
+}
+
+func (s *SortedTable) Contains(key types.Bytes) bool {
+	if bytes.Compare(key, s.firstKey) < 0 {
+		return false
 	}
-	blOffset := binary.BigEndian.Uint32(buf[size-4:])
-
-	_, err = f.ReadAt(buf[blOffset:size-4], int64(blOffset))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read bloom filter from file: %s", err)
+	if bytes.Compare(key, s.lastKey) > 0 {
+		return false
 	}
-
-	bf := &bloom.BloomFilter{}
-	_, err = bf.ReadFrom(bytes.NewBuffer(buf[blOffset : size-4]))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read bloom filter: %s", err)
+	if bytes.Equal(key, s.firstKey) {
+		return true
 	}
-
-	_, err = f.ReadAt(buf[blOffset-4:blOffset], int64(blOffset-4))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read metadata blocks offset: %s", err)
-	}
-	metOffset := binary.BigEndian.Uint32(buf[blOffset-4 : blOffset])
-
-	_, err = f.ReadAt(buf[metOffset:blOffset-4], int64(metOffset))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read metadata blocks: %s", err)
-	}
-
-	metadata, err := decodeBlockMetadatas(buf[metOffset : blOffset-4])
-	if err != nil {
-		return nil, err
+	if bytes.Equal(key, s.lastKey) {
+		return true
 	}
 
-	rawDataChecksum := buf[metOffset-4 : metOffset]
-	_, err = f.ReadAt(rawDataChecksum, int64(metOffset-4))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read data checksum: %s", err)
-	}
-	dataChecksum := binary.BigEndian.Uint32(rawDataChecksum)
+	return s.filter.Test(key)
+}
 
-	data := buf[:metOffset-4]
-	_, err = f.ReadAt(data, 0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read data block: %s", err)
+func (s *SortedTable) Block(idx int) (*block.Block, bool, error) {
+	if s.closed {
+		return nil, false, ErrClosed
 	}
 
+	if idx > len(s.blocks) {
+		return nil, false, nil
+	}
+
+	blk, err := s.readBlock(idx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return blk, true, nil
+}
+
+func (s *SortedTable) readBlock(idx int) (*block.Block, error) {
+	end := s.blockMetaOffset
+	if idx+1 < len(s.blocks) {
+		end = int(s.blocks[idx+1].Offset)
+	}
+
+	start := int(s.blocks[idx].Offset)
+	data := make([]byte, end-start)
+
+	fileChecksum := binary.BigEndian.Uint32(data[len(data)-4:])
+
+	data = data[:len(data)-4]
 	calcChecksum := crc32.ChecksumIEEE(data)
-	if calcChecksum != dataChecksum {
-		return nil, fmt.Errorf("data checksum mismatch")
+	if calcChecksum != fileChecksum {
+		return nil, fmt.Errorf("block checksum mismatch")
 	}
 
-	fm := metadata[0]
-	lm := metadata[len(metadata)-1]
+	_, err := s.file.ReadAt(data, int64(start))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read block idx=%d: %s", idx, err)
+	}
 
-	return &SortedTable{
-		Id:       id,
-		File:     f,
-		FirstKey: fm.FirstKey,
-		LastKey:  lm.LastKey,
-		Filter:   bf,
-		Blocks:   metadata,
-	}, nil
+	return block.Decode(data)
+}
+
+func (s *SortedTable) NumBlocks() int {
+	return len(s.blocks)
+}
+
+func (s *SortedTable) IsClosed() bool {
+	return s.closed
+}
+
+func (s *SortedTable) Scan() (Iterator, error) {
+	if s.closed {
+		return nil, ErrClosed
+	}
+
+	return newIter(s), nil
 }

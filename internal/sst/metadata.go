@@ -19,6 +19,17 @@ type BlockMeta struct {
 	LastKey  types.Bytes
 }
 
+func (m *BlockMeta) Size() int {
+	offsetSize := 4
+
+	keyLengthSize := 2
+	keySize := len(m.FirstKey)
+	valLengthSize := 2
+	valSize := len(m.LastKey)
+
+	return offsetSize + keyLengthSize + keySize + valLengthSize + valSize
+}
+
 func (b *BlockMeta) Decode(rd io.Reader) (int, error) {
 	rawOff := make([]byte, 4)
 	total := 0
@@ -121,15 +132,4 @@ func decodeBlockMetadatas(data []byte) ([]BlockMeta, error) {
 	}
 
 	return metadata, nil
-}
-
-func (m *BlockMeta) Size() int {
-	offsetSize := 4
-
-	keyLengthSize := 2
-	keySize := len(m.FirstKey)
-	valLengthSize := 2
-	valSize := len(m.LastKey)
-
-	return offsetSize + keyLengthSize + keySize + valLengthSize + valSize
 }

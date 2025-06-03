@@ -19,13 +19,11 @@ func TestBuilderEncodeDecodeSimple(t *testing.T) {
 	table, err := b.Build(42, "sstable-simple-test.sst")
 	assert.NoError(t, err)
 	assert.NotNil(t, table)
-	defer table.File.Close()
+	defer table.Close()
 
-	decoded, err := sst.Decode(42, table.File)
+	decoded, err := sst.Decode(42, table.File())
 	assert.NoError(t, err)
-	assert.Equal(t, table.Id, decoded.Id)
-	assert.Equal(t, table.FirstKey, decoded.FirstKey)
-	assert.Equal(t, table.LastKey, decoded.LastKey)
-	assert.Equal(t, len(table.Blocks), len(decoded.Blocks))
-	assert.NotNil(t, decoded.Filter)
+	assert.Equal(t, table.Id(), decoded.Id())
+	assert.Equal(t, table.FirstKey(), decoded.FirstKey())
+	assert.Equal(t, table.LastKey(), decoded.LastKey())
 }

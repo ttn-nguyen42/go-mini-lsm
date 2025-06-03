@@ -53,7 +53,7 @@ func (b *Builder) Build(id uint32, filePath string) (*SortedTable, error) {
 	b.data = append(b.data, blBin...)
 	b.data = binary.BigEndian.AppendUint32(b.data, uint32(blOffset))
 
-	return b.flushSsTable(id, bl, filePath)
+	return b.flushSsTable(id, bl, filePath, metaOffset)
 }
 
 func (b *Builder) Add(key types.Bytes, value types.Bytes) error {
@@ -113,7 +113,7 @@ func (b *Builder) getBloomFilter() *bloom.BloomFilter {
 	return f
 }
 
-func (b *Builder) flushSsTable(id uint32, bl *bloom.BloomFilter, filePath string) (*SortedTable, error) {
+func (b *Builder) flushSsTable(id uint32, bl *bloom.BloomFilter, filePath string, blockMetaOffset int) (*SortedTable, error) {
 	headMeta := b.metas[0]
 	tailMeta := b.metas[len(b.metas)-1]
 
@@ -123,11 +123,12 @@ func (b *Builder) flushSsTable(id uint32, bl *bloom.BloomFilter, filePath string
 	}
 
 	return &SortedTable{
-		Id:       id,
-		Filter:   bl,
-		FirstKey: headMeta.FirstKey,
-		LastKey:  tailMeta.LastKey,
-		Blocks:   b.metas,
-		File:     fo,
+		id:              id,
+		filter:          bl,
+		firstKey:        headMeta.FirstKey,
+		lastKey:         tailMeta.LastKey,
+		blocks:          b.metas,
+		file:            fo,
+		blockMetaOffset: blockMetaOffset,
 	}, nil
 }
