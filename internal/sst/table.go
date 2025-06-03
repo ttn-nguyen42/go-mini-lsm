@@ -68,7 +68,7 @@ func (s *SortedTable) Block(idx int) (*block.Block, bool, error) {
 		return nil, false, ErrClosed
 	}
 
-	if idx > len(s.blocks) {
+	if idx >= len(s.blocks) {
 		return nil, false, nil
 	}
 
@@ -89,17 +89,18 @@ func (s *SortedTable) readBlock(idx int) (*block.Block, error) {
 	start := int(s.blocks[idx].Offset)
 	data := make([]byte, end-start)
 
-	fileChecksum := binary.BigEndian.Uint32(data[len(data)-4:])
-
-	data = data[:len(data)-4]
-	calcChecksum := crc32.ChecksumIEEE(data)
-	if calcChecksum != fileChecksum {
-		return nil, fmt.Errorf("block checksum mismatch")
-	}
-
 	_, err := s.file.ReadAt(data, int64(start))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read block idx=%d: %s", idx, err)
+	}
+
+	fileChecksum := binary.BigEndian.Uint32(data[len(data)-4:])
+
+	data = data[:len(data)-4]
+
+	calcChecksum := crc32.ChecksumIEEE(data)
+	if calcChecksum != fileChecksum {
+		return nil, fmt.Errorf("block checksum mismatch")
 	}
 
 	return block.Decode(data)

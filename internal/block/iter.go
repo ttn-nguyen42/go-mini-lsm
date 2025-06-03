@@ -48,7 +48,7 @@ func (i *iter) HasNext() bool {
 
 func (i *iter) Key() types.Bytes {
 	if i.entr == nil {
-		panic("iterator ended")
+		return nil
 	}
 
 	return i.entr.key
@@ -56,7 +56,7 @@ func (i *iter) Key() types.Bytes {
 
 func (i *iter) Value() types.Bytes {
 	if i.entr == nil {
-		panic("iterator ended")
+		return nil
 	}
 
 	return i.entr.value
@@ -71,7 +71,7 @@ func (i *iter) Next() error {
 func (i *iter) Seek(idx int) error {
 	if idx >= len(i.blk.offsets) {
 		i.entr = nil
-		return nil
+		return ErrIterEnd
 	}
 
 	offset := i.blk.offsets[idx]

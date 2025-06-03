@@ -39,8 +39,11 @@ func (b *Builder) Build(id uint32, filePath string) (*SortedTable, error) {
 	if err := b.refreshBlock(); err != nil {
 		return nil, fmt.Errorf("failed to refresh block: %s", err)
 	}
-	metaOffset := len(b.data)
 
+	dataChecksum := crc32.ChecksumIEEE(b.data)
+	b.data = binary.BigEndian.AppendUint32(b.data, dataChecksum)
+
+	metaOffset := len(b.data)
 	b.data = encodeBlockMetadatas(b.data, b.metas)
 	b.data = binary.BigEndian.AppendUint32(b.data, uint32(metaOffset))
 
@@ -85,13 +88,12 @@ func (b *Builder) refreshBlock() error {
 	blk := currBuilder.Build()
 
 	blkData, err := block.Encode(&blk)
-
 	if err != nil {
 		return fmt.Errorf("failed to encode block data: %s", err)
 	}
 
 	blkMeta := BlockMeta{
-		Offset:   uint32(blkData.Size()),
+		Offset:   uint32(len(b.data)),
 		FirstKey: b.firstKey,
 		LastKey:  b.lastKey,
 	}

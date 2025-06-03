@@ -47,10 +47,7 @@ func decode(data []byte) (*Block, error) {
 	if size < 2+offsetsLen {
 		return nil, fmt.Errorf("data too short for offsets: need at least %d bytes, got %d", 2+offsetsLen, size)
 	}
-	// If pairCount is 0, data should be exactly 2 bytes (just the pair count)
-	if pairCount == 0 {
-		return nil, fmt.Errorf("data has 0 pair counts")
-	}
+
 	dataEnd := size - 2 - offsetsLen
 	if dataEnd < 0 {
 		return nil, fmt.Errorf("dataEnd negative: corrupted data")

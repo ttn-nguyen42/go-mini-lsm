@@ -14,8 +14,11 @@ import (
 // +-----------+-----------------+------------+-----------------+-------------------------+-------------------+--------------+--------------------+----------------+-----------------+
 func Decode(id uint32, f *FileObject) (*SortedTable, error) {
 	t, err := decodeTable(f)
+	if err != nil {
+		return nil, err
+	}
 	t.id = id
-	return t, err
+	return t, nil
 }
 
 func decodeTable(f *FileObject) (*SortedTable, error) {
@@ -74,6 +77,7 @@ func decodeTable(f *FileObject) (*SortedTable, error) {
 	// Verify checksum
 	calcChecksum := crc32.ChecksumIEEE(data)
 	if calcChecksum != dataChecksum {
+		fmt.Printf("decoded data: %X", data)
 		return nil, fmt.Errorf("data checksum mismatch")
 	}
 

@@ -20,19 +20,17 @@ func NewBuilder(options ...BuilderOption) *Builder {
 	}
 }
 
-// Add adds a key-value pair into the builder. Return false when the block is full
+// Add adds a key-value pair into the builder. Will attempt to add to block when even full then returns false
 func (b *Builder) Add(key types.Bytes, value types.Bytes) bool {
 	etr := getEntry(key, value)
 
 	// curSize + entry size + uint16(offset)
-	if b.curSize()+etr.size()+2 > int(b.blockSize) {
-		return false
-	}
+	isFull := b.curSize()+etr.size()+2 > int(b.blockSize)
 
 	b.offsets = append(b.offsets, uint16(len(b.data)))
 	b.data = append(b.data, etr.encode()...)
 
-	return true
+	return isFull
 }
 
 func (b Builder) curSize() int {

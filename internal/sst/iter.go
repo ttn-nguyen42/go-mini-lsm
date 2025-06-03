@@ -26,21 +26,26 @@ type iter struct {
 func newIter(table *SortedTable) Iterator {
 	first, ok, err := table.Block(0)
 	if err != nil {
-		panic("get block error: " + err.Error())
+		if errors.Is(err, block.ErrBlockEmpty) {
+			first = nil
+		}
 	}
 	if !ok {
 		first = nil
 	}
 
-	return &iter{
+	it := &iter{
 		table:    table,
-		blkIter:  first.Scan(),
 		blkIndex: 0,
 	}
+	if first != nil {
+		it.blkIter = first.Scan()
+	}
+	return it
 }
 
 func (i *iter) HasNext() bool {
-	return i.blkIter != nil
+	return i.blkIter != nil && i.blkIter.HasNext()
 }
 
 func (i *iter) Key() types.Bytes {
@@ -59,6 +64,7 @@ func (i *iter) Next() error {
 			return fmt.Errorf("failed to get next block: %s", err)
 		}
 		if !ok {
+			i.blkIter = nil
 			return ErrIterEnd
 		}
 		i.blkIter = blk.Scan()
