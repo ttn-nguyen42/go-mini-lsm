@@ -30,7 +30,7 @@ func (b *Builder) Add(key types.Bytes, value types.Bytes) bool {
 	b.offsets = append(b.offsets, uint16(len(b.data)))
 	b.data = append(b.data, etr.encode()...)
 
-	return isFull
+	return !isFull
 }
 
 func (b Builder) curSize() int {

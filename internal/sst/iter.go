@@ -29,9 +29,11 @@ func newIter(table *SortedTable) Iterator {
 		if errors.Is(err, block.ErrBlockEmpty) {
 			first = nil
 		}
-	}
-	if !ok {
-		first = nil
+		panic("unexpected error: " + err.Error())
+	} else {
+		if !ok {
+			first = nil
+		}
 	}
 
 	it := &iter{

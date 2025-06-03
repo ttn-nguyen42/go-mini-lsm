@@ -43,6 +43,7 @@ func decode(data []byte) (*Block, error) {
 		return nil, fmt.Errorf("data too short to contain pair count")
 	}
 	pairCount := binary.BigEndian.Uint16(data[size-2:])
+
 	offsetsLen := int(pairCount) * 2
 	if size < 2+offsetsLen {
 		return nil, fmt.Errorf("data too short for offsets: need at least %d bytes, got %d", 2+offsetsLen, size)

@@ -81,7 +81,7 @@ func (s *SortedTable) Block(idx int) (*block.Block, bool, error) {
 }
 
 func (s *SortedTable) readBlock(idx int) (*block.Block, error) {
-	end := s.blockMetaOffset
+	end := s.blockMetaOffset - 4 // without the data checksum
 	if idx+1 < len(s.blocks) {
 		end = int(s.blocks[idx+1].Offset)
 	}
@@ -93,7 +93,7 @@ func (s *SortedTable) readBlock(idx int) (*block.Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read block idx=%d: %s", idx, err)
 	}
-
+	
 	fileChecksum := binary.BigEndian.Uint32(data[len(data)-4:])
 
 	data = data[:len(data)-4]

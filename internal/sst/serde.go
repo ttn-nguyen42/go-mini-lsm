@@ -23,6 +23,7 @@ func Decode(id uint32, f *FileObject) (*SortedTable, error) {
 
 func decodeTable(f *FileObject) (*SortedTable, error) {
 	size := f.Size()
+
 	buf := make([]byte, size)
 
 	// Read bloom filter offset (last 4 bytes)
@@ -31,44 +32,50 @@ func decodeTable(f *FileObject) (*SortedTable, error) {
 		return nil, fmt.Errorf("failed to read bloom filter offset from file: %s", err)
 	}
 	blOffset := binary.BigEndian.Uint32(buf[size-4:])
+	size -= 4
 
 	// Read bloom filter
-	_, err = f.ReadAt(buf[blOffset:size-4], int64(blOffset))
+	_, err = f.ReadAt(buf[blOffset:size], int64(blOffset))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read bloom filter from file: %s", err)
 	}
 	bf := &bloom.BloomFilter{}
-	if _, err = bf.ReadFrom(bytes.NewBuffer(buf[blOffset : size-4])); err != nil {
+	if _, err = bf.ReadFrom(bytes.NewBuffer(buf[blOffset:size])); err != nil {
 		return nil, fmt.Errorf("failed to read bloom filter: %s", err)
 	}
+	size = int(blOffset)
 
 	// Read metadata blocks offset (4 bytes before bloom filter)
-	_, err = f.ReadAt(buf[blOffset-4:blOffset], int64(blOffset-4))
+	_, err = f.ReadAt(buf[size-4:size], int64(size-4))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read metadata blocks offset: %s", err)
 	}
-	metOffset := binary.BigEndian.Uint32(buf[blOffset-4 : blOffset])
+	metOffset := binary.BigEndian.Uint32(buf[size-4 : size])
+	size -= 4
 
 	// Read metadata blocks
-	_, err = f.ReadAt(buf[metOffset:blOffset-4], int64(metOffset))
+	_, err = f.ReadAt(buf[metOffset:size], int64(metOffset))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read metadata blocks: %s", err)
 	}
-	metadata, err := decodeBlockMetadatas(buf[metOffset : blOffset-4])
+	metadata, err := decodeBlockMetadatas(buf[metOffset : size])
 	if err != nil {
 		return nil, err
 	}
+	size = int(metOffset)
 
 	// Read data checksum (4 bytes before metadata blocks)
-	rawDataChecksum := buf[metOffset-4 : metOffset]
-	_, err = f.ReadAt(rawDataChecksum, int64(metOffset-4))
+	rawDataChecksum := buf[size-4 : size]
+	_, err = f.ReadAt(rawDataChecksum, int64(size-4))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read data checksum: %s", err)
 	}
+
 	dataChecksum := binary.BigEndian.Uint32(rawDataChecksum)
+	size -= 4
 
 	// Read data blocks
-	data := buf[:metOffset-4]
+	data := buf[:size]
 	_, err = f.ReadAt(data, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read data block: %s", err)
@@ -77,7 +84,6 @@ func decodeTable(f *FileObject) (*SortedTable, error) {
 	// Verify checksum
 	calcChecksum := crc32.ChecksumIEEE(data)
 	if calcChecksum != dataChecksum {
-		fmt.Printf("decoded data: %X", data)
 		return nil, fmt.Errorf("data checksum mismatch")
 	}
 

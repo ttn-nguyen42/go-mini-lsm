@@ -22,17 +22,19 @@ type BlockMeta struct {
 func (m *BlockMeta) Size() int {
 	offsetSize := 4
 
-	keyLengthSize := 2
-	keySize := len(m.FirstKey)
-	valLengthSize := 2
-	valSize := len(m.LastKey)
+	firstKeyLengthSize := 2
+	firstKeySize := len(m.FirstKey)
 
-	return offsetSize + keyLengthSize + keySize + valLengthSize + valSize
+	lastKeyLengthSize := 2
+	lastKeySize := len(m.LastKey)
+
+	return offsetSize + firstKeyLengthSize + firstKeySize + lastKeyLengthSize + lastKeySize
 }
 
 func (b *BlockMeta) Decode(rd io.Reader) (int, error) {
 	rawOff := make([]byte, 4)
 	total := 0
+	
 	n, err := rd.Read(rawOff)
 	if err != nil {
 		return total, err
@@ -43,6 +45,7 @@ func (b *BlockMeta) Decode(rd io.Reader) (int, error) {
 	b.Offset = offset
 
 	rawKeyLen := make([]byte, 2)
+	
 	n, err = rd.Read(rawKeyLen)
 	if err != nil {
 		return total, err
@@ -51,6 +54,7 @@ func (b *BlockMeta) Decode(rd io.Reader) (int, error) {
 
 	firstKeyLen := binary.BigEndian.Uint16(rawKeyLen)
 	b.FirstKey = make(types.Bytes, firstKeyLen)
+	
 	n, err = rd.Read(b.FirstKey)
 	if err != nil {
 		return total, err
@@ -65,6 +69,7 @@ func (b *BlockMeta) Decode(rd io.Reader) (int, error) {
 
 	lastKeyLen := binary.BigEndian.Uint16(rawKeyLen)
 	b.LastKey = make(types.Bytes, lastKeyLen)
+	
 	n, err = rd.Read(b.LastKey)
 	if err != nil {
 		return total, err
@@ -74,31 +79,51 @@ func (b *BlockMeta) Decode(rd io.Reader) (int, error) {
 	return total, nil
 }
 
-func (b *BlockMeta) Encode(data []byte) []byte {
-	data = binary.BigEndian.AppendUint32(data, b.Offset)
-	data = binary.BigEndian.AppendUint16(data, uint16(len(b.FirstKey)))
-	data = append(data, b.FirstKey...)
-	data = binary.BigEndian.AppendUint16(data, uint16(len(b.LastKey)))
-	data = append(data, b.LastKey...)
+func (b *BlockMeta) Encode(data []byte) int {
+	off := 0
 
-	return data
+	binary.BigEndian.PutUint32(data[off:off+4], b.Offset)
+	off += 4
+
+	binary.BigEndian.PutUint16(data[off:off+2], uint16(len(b.FirstKey)))
+	off += 2
+
+	copy(data[off:off+len(b.FirstKey)], b.FirstKey)
+	off += len(b.FirstKey)
+
+	binary.BigEndian.PutUint16(data[off:off+2], uint16(len(b.LastKey)))
+	off += 2
+
+	copy(data[off:off+len(b.LastKey)], b.LastKey)
+	off += len(b.LastKey)
+
+	return off
+}
+
+func estimateBlockMetadatas(data []BlockMeta) int {
+	total := 0
+	total += 4 // number of metadata
+	for _, m := range data {
+		total += m.Size() // metadata
+	}
+	return total + 4 // checksum
 }
 
 // +-------------------+-------------------+----------------+
 // | # of blocks (4b)  |  metadata blocks  |  CRC32 cs (4b) |
 // +-------------------+-------------------+----------------+
-func encodeBlockMetadatas(data []byte, metadata []BlockMeta) []byte {
-	curOffset := len(data)
+func encodeBlockMetadatas(data []byte, metadata []BlockMeta) {
+	s := 0
 
-	data = binary.BigEndian.AppendUint32(data, uint32(len(metadata))) // number of metadata blocks
-
+	binary.BigEndian.PutUint32(data[s:s+4], uint32(len(metadata))) // number of metadata blocks
+	e := s + 4
 	for _, m := range metadata {
-		data = m.Encode(data)
+		written := m.Encode(data[e : e+m.Size()])
+		e += written
 	} // metadata
 
-	h := crc32.ChecksumIEEE(data[curOffset+4:])
-	data = binary.BigEndian.AppendUint32(data, h) // checksum
-	return data
+	h := crc32.ChecksumIEEE(data[s+4 : e])
+	binary.BigEndian.PutUint32(data[e:e+4], h) // checksum
 }
 
 func decodeBlockMetadatas(data []byte) ([]BlockMeta, error) {

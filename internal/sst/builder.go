@@ -40,23 +40,50 @@ func (b *Builder) Build(id uint32, filePath string) (*SortedTable, error) {
 		return nil, fmt.Errorf("failed to refresh block: %s", err)
 	}
 
-	dataChecksum := crc32.ChecksumIEEE(b.data)
-	b.data = binary.BigEndian.AppendUint32(b.data, dataChecksum)
-
-	metaOffset := len(b.data)
-	b.data = encodeBlockMetadatas(b.data, b.metas)
-	b.data = binary.BigEndian.AppendUint32(b.data, uint32(metaOffset))
-
 	bl := b.getBloomFilter()
-	blOffset := len(b.data)
-	blBin, err := bl.MarshalBinary()
+	blBin, err := bl.MarshalBinary() // bloom filter
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize bloom filter: %s", err)
+		return nil, err
 	}
-	b.data = append(b.data, blBin...)
-	b.data = binary.BigEndian.AppendUint32(b.data, uint32(blOffset))
 
-	return b.flushSsTable(id, bl, filePath, metaOffset)
+	s := getSstSizeEstimate(len(b.data), b.metas, len(blBin))
+	buf := make([]byte, s)
+
+	off := 0
+	copy(buf[:len(b.data)], b.data)
+	off += len(b.data)
+
+	dataChecksum := crc32.ChecksumIEEE(buf[:off])
+	binary.BigEndian.PutUint32(buf[off:off+4], dataChecksum) // block data checksum
+	off += 4
+	
+
+	blkMetaSize := estimateBlockMetadatas(b.metas)
+	metaOff := off
+
+	encodeBlockMetadatas(buf[off:off+blkMetaSize], b.metas) // block metadatas
+	off += blkMetaSize
+
+	binary.BigEndian.PutUint32(buf[off:off+4], uint32(metaOff)) // metadata offset
+	off += 4
+
+	blOff := off
+	copy(buf[off:off+len(blBin)], blBin)
+	off += len(blBin)
+
+	binary.BigEndian.PutUint32(buf[off:off+4], uint32(blOff)) // bloom filter offset
+	off += 4
+
+	return b.flushSsTable(id, buf[:off], bl, filePath, metaOff)
+}
+
+func getSstSizeEstimate(dataSize int, blkMeta []BlockMeta, blfSize int) int {
+	dataSize += 4                               // block data checksum
+	dataSize += estimateBlockMetadatas(blkMeta) // block metadata
+	dataSize += 4                               // metadata offset
+	dataSize += blfSize                         // bloom filter
+	dataSize += 4                               // bloom filter offset
+	return dataSize
 }
 
 func (b *Builder) Add(key types.Bytes, value types.Bytes) error {
@@ -76,7 +103,7 @@ func (b *Builder) Add(key types.Bytes, value types.Bytes) error {
 
 	b.firstKey = key
 	b.lastKey = key
-	b.keys = make([]types.Bytes, 0)
+	b.keys = append(b.keys, b.firstKey)
 
 	return nil
 }
@@ -108,18 +135,18 @@ func (b *Builder) refreshBlock() error {
 }
 
 func (b *Builder) getBloomFilter() *bloom.BloomFilter {
-	f := bloom.NewWithEstimates(uint(len(b.metas)), 0.01)
+	f := bloom.NewWithEstimates(uint(len(b.keys)), 0.01)
 	for _, k := range b.keys {
 		f.Add(k)
 	}
 	return f
 }
 
-func (b *Builder) flushSsTable(id uint32, bl *bloom.BloomFilter, filePath string, blockMetaOffset int) (*SortedTable, error) {
+func (b *Builder) flushSsTable(id uint32, buf []byte, bl *bloom.BloomFilter, filePath string, blockMetaOffset int) (*SortedTable, error) {
 	headMeta := b.metas[0]
 	tailMeta := b.metas[len(b.metas)-1]
 
-	fo, err := Write(b.data, filePath)
+	fo, err := Write(buf, filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %s", err)
 	}
