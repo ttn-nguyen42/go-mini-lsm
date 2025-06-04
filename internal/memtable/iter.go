@@ -10,20 +10,12 @@ import (
 
 var ErrIterEnded error = fmt.Errorf("iterator reached the end")
 
-type Iterator interface {
-	HasNext() bool
-	Next() error
-	Key() types.Bytes
-	Value() types.Bytes
-	Close()
-}
-
 type mergeIter struct {
 	m  *memTable
 	it skiplist.Iterator[types.Bytes, types.Bytes]
 }
 
-func newIter(m *memTable) Iterator {
+func newIter(m *memTable) types.ClosableIterator {
 	return &mergeIter{
 		m:  m,
 		it: m.list.Scan(),

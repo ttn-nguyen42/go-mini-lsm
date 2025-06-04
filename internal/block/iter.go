@@ -10,22 +10,13 @@ import (
 
 var ErrIterEnd = fmt.Errorf("iterator reached the end")
 
-type Iterator interface {
-	Key() types.Bytes
-	Value() types.Bytes
-	HasNext() bool
-	Next() error
-	Seek(idx int) error
-	SeekToKey(key types.Bytes) error
-}
-
 type iter struct {
 	blk  *Block
 	entr *entry
 	idx  int
 }
 
-func newIter(blk *Block) Iterator {
+func newIter(blk *Block) types.SeekableIterator {
 	first, err := blk.first()
 	if err != nil {
 		if errors.Is(err, ErrBlockEmpty) {

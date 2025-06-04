@@ -10,20 +10,13 @@ import (
 
 var ErrIterEnd error = fmt.Errorf("iterator ended")
 
-type Iterator interface {
-	Key() types.Bytes
-	Value() types.Bytes
-	HasNext() bool
-	Next() error
-}
-
 type iter struct {
 	table    *SortedTable
-	blkIter  block.Iterator
+	blkIter  types.SeekableIterator
 	blkIndex int
 }
 
-func newIter(table *SortedTable) Iterator {
+func newIter(table *SortedTable) types.Iterator {
 	first, ok, err := table.Block(0)
 	if err != nil {
 		if errors.Is(err, block.ErrBlockEmpty) {

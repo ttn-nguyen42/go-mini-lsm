@@ -122,7 +122,7 @@ func (s *SortedTable) IsClosed() bool {
 	return s.closed
 }
 
-func (s *SortedTable) Scan() (Iterator, error) {
+func (s *SortedTable) Scan() (types.Iterator, error) {
 	if s.closed {
 		return nil, ErrClosed
 	}

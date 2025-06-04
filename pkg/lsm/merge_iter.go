@@ -10,7 +10,7 @@ import (
 )
 
 type memTableIterWrapper struct {
-	iter memtable.Iterator
+	iter types.ClosableIterator
 	id   int
 }
 
@@ -28,7 +28,7 @@ var iterWrapperCmp heap.Comparator[*memTableIterWrapper] = func(a, b *memTableIt
 }
 
 type MergeIter struct {
-	orgIter []memtable.Iterator
+	orgIter []types.ClosableIterator
 	iters   heap.Heap[*memTableIterWrapper]
 	curr    *memTableIterWrapper
 }
@@ -41,7 +41,7 @@ func NewMergeIter(tables []memtable.MemTable) *MergeIter {
 		}
 	}
 
-	orgIter := make([]memtable.Iterator, 0, len(tables))
+	orgIter := make([]types.ClosableIterator, 0, len(tables))
 	wp := make([]*memTableIterWrapper, 0, len(tables))
 	for _, tb := range tables {
 		it := tb.Scan()

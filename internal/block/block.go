@@ -3,6 +3,8 @@ package block
 import (
 	"fmt"
 	"strings"
+
+	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
 
 var ErrBlockEmpty error = fmt.Errorf("block empty")
@@ -85,6 +87,6 @@ func (b *Block) first() (*entry, error) {
 	return &e, nil
 }
 
-func (b *Block) Scan() Iterator {
+func (b *Block) Scan() types.SeekableIterator {
 	return newIter(b)
 }
