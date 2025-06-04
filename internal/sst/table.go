@@ -14,13 +14,15 @@ import (
 var ErrClosed = fmt.Errorf("table closed")
 
 type SortedTable struct {
-	id              uint32
+	id              int32
 	firstKey        types.Bytes
 	lastKey         types.Bytes
 	filter          *bloom.BloomFilter
 	blocks          []BlockMeta
 	file            *FileObject
 	blockMetaOffset int
+
+	cache BlockCache
 
 	closed bool
 }
@@ -34,7 +36,7 @@ func (s *SortedTable) File() *FileObject {
 	return s.file
 }
 
-func (s *SortedTable) Id() uint32 {
+func (s *SortedTable) Id() int32 {
 	return s.id
 }
 
@@ -72,10 +74,16 @@ func (s *SortedTable) Block(idx int) (*block.Block, bool, error) {
 		return nil, false, nil
 	}
 
-	blk, err := s.readBlock(idx)
-	if err != nil {
-		return nil, false, err
-	}
+	var err error
+	key := CacheKey{SstId: s.id, BlockId: int32(idx)}
+	blk, _ := s.cache.GetOrSet(key, func() (*block.Block, bool) {
+		var blk *block.Block
+		blk, err = s.readBlock(idx)
+		if err != nil {
+			panic("failed to read block: " + err.Error())
+		}
+		return blk, true
+	})
 
 	return blk, true, nil
 }
@@ -93,7 +101,7 @@ func (s *SortedTable) readBlock(idx int) (*block.Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read block idx=%d: %s", idx, err)
 	}
-	
+
 	fileChecksum := binary.BigEndian.Uint32(data[len(data)-4:])
 
 	data = data[:len(data)-4]

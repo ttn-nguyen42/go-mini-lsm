@@ -2,157 +2,159 @@ package cache
 
 import (
 	"testing"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
 
 func TestCacheSetGet(t *testing.T) {
-	c := New[string, string](2)
-	old, replaced := c.Set("a", "foo")
+	c := New[types.SizeableString, types.SizeableString](2)
+	old, replaced := c.Set(types.SizeableString("a"), types.SizeableString("foo"))
 	assert.False(t, replaced)
-	assert.Equal(t, "", old)
-	val, ok := c.Get("a")
+	assert.Equal(t, types.SizeableString(""), old)
+	val, ok := c.Get(types.SizeableString("a"))
 	assert.True(t, ok)
-	assert.Equal(t, "foo", val)
+	assert.Equal(t, types.SizeableString("foo"), val)
 	assert.Equal(t, len("a")+len("foo"), c.SizeBytes())
 }
 
 func TestCacheReplace(t *testing.T) {
-	c := New[string, string](2)
-	c.Set("a", "foo")
-	old, replaced := c.Set("a", "bar")
+	c := New[types.SizeableString, types.SizeableString](2)
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
+	old, replaced := c.Set(types.SizeableString("a"), types.SizeableString("bar"))
 	assert.True(t, replaced)
-	assert.Equal(t, "foo", old)
-	val, ok := c.Get("a")
+	assert.Equal(t, types.SizeableString("foo"), old)
+	val, ok := c.Get(types.SizeableString("a"))
 	assert.True(t, ok)
-	assert.Equal(t, "bar", val)
+	assert.Equal(t, types.SizeableString("bar"), val)
 	assert.Equal(t, len("a")+len("bar"), c.SizeBytes())
 }
 
 func TestCacheEviction(t *testing.T) {
-	c := New[string, string](2)
-	c.Set("a", "foo")
-	c.Set("b", "bar")
-	c.Set("c", "baz") // should evict "a"
-	_, ok := c.Get("a")
+	c := New[types.SizeableString, types.SizeableString](2)
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
+	c.Set(types.SizeableString("b"), types.SizeableString("bar"))
+	c.Set(types.SizeableString("c"), types.SizeableString("baz")) // should evict "a"
+	_, ok := c.Get(types.SizeableString("a"))
 	assert.False(t, ok)
-	val, ok := c.Get("b")
+	val, ok := c.Get(types.SizeableString("b"))
 	assert.True(t, ok)
-	assert.Equal(t, "bar", val)
-	val, ok = c.Get("c")
+	assert.Equal(t, types.SizeableString("bar"), val)
+	val, ok = c.Get(types.SizeableString("c"))
 	assert.True(t, ok)
-	assert.Equal(t, "baz", val)
-	expected := len("b")+len("bar") + len("c")+len("baz")
+	assert.Equal(t, types.SizeableString("baz"), val)
+	expected := len("b") + len("bar") + len("c") + len("baz")
 	assert.Equal(t, expected, c.SizeBytes())
 }
 
 func TestCacheDelete(t *testing.T) {
-	c := New[string, string](2)
-	c.Set("a", "foo")
-	ok := c.Delete("a")
+	c := New[types.SizeableString, types.SizeableString](2)
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
+	ok := c.Delete(types.SizeableString("a"))
 	assert.True(t, ok)
-	_, ok = c.Get("a")
+	_, ok = c.Get(types.SizeableString("a"))
 	assert.False(t, ok)
-	ok = c.Delete("a")
+	ok = c.Delete(types.SizeableString("a"))
 	assert.False(t, ok)
 	assert.Equal(t, 0, c.SizeBytes())
 }
 
 func TestCacheContains(t *testing.T) {
-	c := New[string, string](2)
-	c.Set("a", "foo")
-	assert.True(t, c.Contains("a"))
-	c.Delete("a")
-	assert.False(t, c.Contains("a"))
+	c := New[types.SizeableString, types.SizeableString](2)
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
+	assert.True(t, c.Contains(types.SizeableString("a")))
+	c.Delete(types.SizeableString("a"))
+	assert.False(t, c.Contains(types.SizeableString("a")))
 }
 
 func TestCacheClear(t *testing.T) {
-	c := New[string, string](2)
-	c.Set("a", "foo")
-	c.Set("b", "bar")
+	c := New[types.SizeableString, types.SizeableString](2)
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
+	c.Set(types.SizeableString("b"), types.SizeableString("bar"))
 	c.Clear()
 	assert.Equal(t, 0, c.Len())
-	assert.False(t, c.Contains("a"))
-	assert.False(t, c.Contains("b"))
+	assert.False(t, c.Contains(types.SizeableString("a")))
+	assert.False(t, c.Contains(types.SizeableString("b")))
 	assert.Equal(t, 0, c.SizeBytes())
 }
 
 func TestCacheGetOrSet(t *testing.T) {
-	c := New[string, string](2)
-	val, isSet := c.GetOrSet("a", "foo")
+	c := New[types.SizeableString, types.SizeableString](2)
+	val, isSet := c.GetOrSet(types.SizeableString("a"), func() (types.SizeableString, bool) { return "foo", true })
 	assert.True(t, isSet)
-	assert.Equal(t, "foo", val)
-	val, isSet = c.GetOrSet("a", "bar")
+	assert.Equal(t, types.SizeableString("foo"), val)
+	val, isSet = c.GetOrSet(types.SizeableString("a"), func() (types.SizeableString, bool) { return "bar", true })
 	assert.False(t, isSet)
-	assert.Equal(t, "foo", val)
+	assert.Equal(t, types.SizeableString("foo"), val)
 }
 
 func TestCacheLenCap(t *testing.T) {
-	c := New[string, string](2)
+	c := New[types.SizeableString, types.SizeableString](2)
 	assert.Equal(t, 0, c.Len())
 	assert.Equal(t, 2, c.Cap())
-	c.Set("a", "foo")
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
 	assert.Equal(t, 1, c.Len())
 }
 
 func TestCacheUpdateMostRecent(t *testing.T) {
-	c := New[string, string](3)
-	c.Set("a", "foo")
-	c.Set("b", "bar")
-	c.Set("c", "baz")
+	c := New[types.SizeableString, types.SizeableString](3)
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
+	c.Set(types.SizeableString("b"), types.SizeableString("bar"))
+	c.Set(types.SizeableString("c"), types.SizeableString("baz"))
 	// Access "b" to make it most recent
-	c.Get("b")
+	c.Get(types.SizeableString("b"))
 	// Update the most recent key
-	old, replaced := c.Set("b", "buzz")
+	old, replaced := c.Set(types.SizeableString("b"), types.SizeableString("buzz"))
 	assert.True(t, replaced)
-	assert.Equal(t, "bar", old)
-	val, ok := c.Get("b")
+	assert.Equal(t, types.SizeableString("bar"), old)
+	val, ok := c.Get(types.SizeableString("b"))
 	assert.True(t, ok)
-	assert.Equal(t, "buzz", val)
+	assert.Equal(t, types.SizeableString("buzz"), val)
 	// SizeBytes should reflect updated value
-	expected := len("a")+len("foo") + len("b")+len("buzz") + len("c")+len("baz")
+	expected := len("a") + len("foo") + len("b") + len("buzz") + len("c") + len("baz")
 	assert.Equal(t, expected, c.SizeBytes())
 }
 
 func TestCacheUpdateNotMostRecent(t *testing.T) {
-	c := New[string, string](3)
-	c.Set("a", "foo")
-	c.Set("b", "bar")
-	c.Set("c", "baz")
+	c := New[types.SizeableString, types.SizeableString](3)
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
+	c.Set(types.SizeableString("b"), types.SizeableString("bar"))
+	c.Set(types.SizeableString("c"), types.SizeableString("baz"))
 	// Access "c" to make it most recent, so "a" is not most recent
-	c.Get("c")
+	c.Get(types.SizeableString("c"))
 	// Update a key that is not most recent ("a")
-	old, replaced := c.Set("a", "fizz")
+	old, replaced := c.Set(types.SizeableString("a"), types.SizeableString("fizz"))
 	assert.True(t, replaced)
-	assert.Equal(t, "foo", old)
-	val, ok := c.Get("a")
+	assert.Equal(t, types.SizeableString("foo"), old)
+	val, ok := c.Get(types.SizeableString("a"))
 	assert.True(t, ok)
-	assert.Equal(t, "fizz", val)
+	assert.Equal(t, types.SizeableString("fizz"), val)
 	// SizeBytes should reflect updated value
-	expected := len("a")+len("fizz") + len("b")+len("bar") + len("c")+len("baz")
+	expected := len("a") + len("fizz") + len("b") + len("bar") + len("c") + len("baz")
 	assert.Equal(t, expected, c.SizeBytes())
 }
 
 func TestCacheEvictionHook(t *testing.T) {
 	hookCalled := false
-	var evictedKey, evictedVal string
+	var evictedKey, evictedVal types.SizeableString
 	var evictedTS int64
 	hook := func(key any, value any, ts int64) {
 		hookCalled = true
-		if k, ok := key.(string); ok {
+		if k, ok := key.(types.SizeableString); ok {
 			evictedKey = k
 		}
-		if v, ok := value.(string); ok {
+		if v, ok := value.(types.SizeableString); ok {
 			evictedVal = v
 		}
 		evictedTS = ts
 	}
 
-	c := New[string, string](2, WithEvictHook(hook))
-	c.Set("a", "foo")
-	c.Set("b", "bar")
-	c.Set("c", "baz") // should evict "a"
+	c := New[types.SizeableString, types.SizeableString](2, WithEvictHook(hook))
+	c.Set(types.SizeableString("a"), types.SizeableString("foo"))
+	c.Set(types.SizeableString("b"), types.SizeableString("bar"))
+	c.Set(types.SizeableString("c"), types.SizeableString("baz")) // should evict "a"
 	assert.True(t, hookCalled)
-	assert.Equal(t, "a", evictedKey)
-	assert.Equal(t, "foo", evictedVal)
+	assert.Equal(t, types.SizeableString("a"), evictedKey)
+	assert.Equal(t, types.SizeableString("foo"), evictedVal)
 	assert.NotZero(t, evictedTS)
 }

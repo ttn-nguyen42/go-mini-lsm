@@ -13,6 +13,10 @@ type Block struct {
 	size    int
 }
 
+func (b *Block) Size() int {
+	return b.size
+}
+
 func (b *Block) String() string {
 	sb := strings.Builder{}
 	sb.WriteString("data=")

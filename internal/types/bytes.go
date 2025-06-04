@@ -9,3 +9,9 @@ func (b Bytes) Size() int {
 func (b Bytes) String() string {
 	return string(b)
 }
+
+type SizeableString string
+
+func (b SizeableString) Size() int {
+	return len(b)
+}

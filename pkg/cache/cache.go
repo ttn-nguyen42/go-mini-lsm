@@ -5,17 +5,17 @@ import (
 	"time"
 )
 
-// SizeableKey: comparable + sizeable
+// Sizeable: comparable + sizeable
 // Only allow string or []byte for K and V for now (Go doesn't allow interface in union)
-type SizeableKey interface {
+type Sizeable interface {
 	comparable
-	~string | ~[]byte
+	Size() int
 }
 
-type Cache[K SizeableKey, V SizeableKey] interface {
+type Cache[K Sizeable, V Sizeable] interface {
 	Set(key K, value V) (old V, replaced bool)
 	Get(key K) (value V, ok bool)
-	GetOrSet(key K, defaultVal V) (value V, isSet bool)
+	GetOrSet(key K, gen func() (V, bool)) (value V, isSet bool)
 	Delete(key K) (ok bool)
 	Contains(key K) (ok bool)
 	Clear()
@@ -31,7 +31,7 @@ type lruItem[K comparable, V any] struct {
 	next *lruItem[K, V] // less recently used
 }
 
-type lruCache[K SizeableKey, V SizeableKey] struct {
+type lruCache[K Sizeable, V Sizeable] struct {
 	lock sync.RWMutex
 
 	head      *lruItem[K, V] // most recently used
@@ -44,7 +44,7 @@ type lruCache[K SizeableKey, V SizeableKey] struct {
 	opts *Options
 }
 
-func New[K SizeableKey, V SizeableKey](size int, options ...Option) Cache[K, V] {
+func New[K Sizeable, V Sizeable](size int, options ...Option) Cache[K, V] {
 	opts := newOptions(options...)
 
 	return newLruCache[K, V](size, opts)
@@ -56,7 +56,7 @@ type eviction[K comparable, V any] struct {
 	ts  int64
 }
 
-func newLruCache[K SizeableKey, V SizeableKey](size int, opts *Options) *lruCache[K, V] {
+func newLruCache[K Sizeable, V Sizeable](size int, opts *Options) *lruCache[K, V] {
 	head := &lruItem[K, V]{}
 	tail := &lruItem[K, V]{}
 	head.next = tail
@@ -108,7 +108,7 @@ func (l *lruCache[K, V]) delete(key K) (ok bool) {
 		l.pop(item)
 		delete(l.data, key)
 		l.numItems -= 1
-		l.sizeBytes -= defaultLen(key) + defaultLen(item.val)
+		l.sizeBytes -= key.Size() + item.val.Size()
 		return true
 	}
 	return false
@@ -132,14 +132,19 @@ func (l *lruCache[K, V]) get(key K) (value V, ok bool) {
 	return item.val, true
 }
 
-func (l *lruCache[K, V]) GetOrSet(key K, defaultVal V) (value V, isSet bool) {
+func (l *lruCache[K, V]) GetOrSet(key K, gen func() (V, bool)) (value V, isSet bool) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	item, ok := l.get(key)
 	if !ok {
-		l.setEvicted(key, defaultVal)
-		return defaultVal, true
+		data, ok := gen()
+		if !ok {
+			return value, false
+		}
+
+		l.setEvicted(key, data)
+		return data, true
 	}
 	return item, false
 }
@@ -166,7 +171,7 @@ func (l *lruCache[K, V]) evictLeastRecent() *eviction[K, V] {
 	moreRecent.next = tail
 	tail.prev = moreRecent
 	l.numItems -= 1
-	l.sizeBytes -= defaultLen(least.key) + defaultLen(least.val)
+	l.sizeBytes -= least.key.Size() + least.val.Size()
 
 	if l.opts != nil && l.opts.evictHook != nil {
 		l.opts.evictHook(least.key, least.val, time.Now().UnixMilli())
@@ -186,14 +191,14 @@ func (l *lruCache[K, V]) setEvicted(key K, value V) (old V, replace bool, e *evi
 		l.pushRecent(val)
 		l.data[key] = val
 		l.numItems += 1
-		l.sizeBytes += defaultLen(key) + defaultLen(value)
+		l.sizeBytes += key.Size() + value.Size()
 		var old V
 		return old, false, e
 	}
 	old = val.val
-	l.sizeBytes -= defaultLen(val.key) + defaultLen(val.val)
+	l.sizeBytes -= val.key.Size() + val.val.Size()
 	val.val = value
-	l.sizeBytes += defaultLen(val.key) + defaultLen(val.val)
+	l.sizeBytes += val.key.Size() + val.val.Size()
 	l.makeRecent(val)
 	return old, true, nil
 }
@@ -240,9 +245,4 @@ func (l *lruCache[K, V]) Cap() int {
 	defer l.lock.RUnlock()
 
 	return l.cap
-}
-
-// Helper to get length of K or V
-func defaultLen[T SizeableKey](v T) int {
-	return len(v)
 }

@@ -12,12 +12,13 @@ import (
 // +-----------+-----------------+------------+-----------------+-------------------------+-------------------+--------------+--------------------+----------------+-----------------+
 // | block #0  |  checksum (4b)  |  block #1  |  checksum (4b)  |  # of met. blocks (4b)  |  metadata blocks  |  CRC32 (4b)  |  met. offset (4b)  |  bloom filter  |  bf offset (4b) |
 // +-----------+-----------------+------------+-----------------+-------------------------+-------------------+--------------+--------------------+----------------+-----------------+
-func Decode(id uint32, f *FileObject) (*SortedTable, error) {
+func Decode(id int32, f *FileObject, cache BlockCache) (*SortedTable, error) {
 	t, err := decodeTable(f)
 	if err != nil {
 		return nil, err
 	}
 	t.id = id
+	t.cache = cache
 	return t, nil
 }
 
@@ -58,7 +59,7 @@ func decodeTable(f *FileObject) (*SortedTable, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read metadata blocks: %s", err)
 	}
-	metadata, err := decodeBlockMetadatas(buf[metOffset : size])
+	metadata, err := decodeBlockMetadatas(buf[metOffset:size])
 	if err != nil {
 		return nil, err
 	}

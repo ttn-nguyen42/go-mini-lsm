@@ -10,6 +10,8 @@ import (
 )
 
 func TestBuilderEncodeDecodeSimple(t *testing.T) {
+	blockCache := sst.NewBlockCache(2048) // 2KB
+
 	b := sst.NewBuilder(128)
 	for i := range 3 {
 		key := types.Bytes([]byte{byte('k' + i)})
@@ -17,13 +19,13 @@ func TestBuilderEncodeDecodeSimple(t *testing.T) {
 		assert.NoError(t, b.Add(key, val))
 	}
 
-	table, err := b.Build(42, "sstable-simple-test.sst")
+	table, err := b.Build(42, "sstable-simple-test.sst", blockCache)
 	assert.NoError(t, err)
 	assert.NotNil(t, table)
 	defer table.Close()
 	defer os.Remove("sstable-simple-test.sst")
 
-	decoded, err := sst.Decode(42, table.File())
+	decoded, err := sst.Decode(42, table.File(), blockCache)
 	assert.NoError(t, err)
 	assert.Equal(t, table.Id(), decoded.Id())
 	assert.Equal(t, table.FirstKey(), decoded.FirstKey())
@@ -31,6 +33,8 @@ func TestBuilderEncodeDecodeSimple(t *testing.T) {
 }
 
 func TestSSTIteratorBasic(t *testing.T) {
+	blockCache := sst.NewBlockCache(2048) // 2KB
+
 	b := sst.NewBuilder(128)
 	for i := range 5 {
 		key := types.Bytes([]byte{byte('a' + i)})
@@ -40,7 +44,7 @@ func TestSSTIteratorBasic(t *testing.T) {
 	tmpfile, err := os.CreateTemp("", "sstable-iter-*.sst")
 	assert.NoError(t, err)
 	defer os.Remove(tmpfile.Name())
-	table, err := b.Build(1, tmpfile.Name())
+	table, err := b.Build(1, tmpfile.Name(), blockCache)
 	assert.NoError(t, err)
 	assert.NotNil(t, table)
 
@@ -57,11 +61,13 @@ func TestSSTIteratorBasic(t *testing.T) {
 }
 
 func TestSSTIteratorEmpty(t *testing.T) {
+	blockCache := sst.NewBlockCache(2048) // 2KB
+
 	b := sst.NewBuilder(128)
 	tmpfile, err := os.CreateTemp("", "sstable-iter-empty-*.sst")
 	assert.NoError(t, err)
 	defer os.Remove(tmpfile.Name())
-	table, err := b.Build(1, tmpfile.Name())
+	table, err := b.Build(1, tmpfile.Name(), blockCache)
 	assert.NoError(t, err)
 	it, err := table.Scan()
 	assert.NoError(t, err)
@@ -69,6 +75,8 @@ func TestSSTIteratorEmpty(t *testing.T) {
 }
 
 func TestSSTIteratorMultiBlock(t *testing.T) {
+	blockCache := sst.NewBlockCache(2048) // 2KB
+
 	b := sst.NewBuilder(32)
 	for i := range 20 {
 		key := types.Bytes([]byte{byte('a' + i)})
@@ -78,7 +86,7 @@ func TestSSTIteratorMultiBlock(t *testing.T) {
 	tmpfile, err := os.CreateTemp("", "sstable-iter-multiblock-*.sst")
 	assert.NoError(t, err)
 	defer os.Remove(tmpfile.Name())
-	table, err := b.Build(1, tmpfile.Name())
+	table, err := b.Build(1, tmpfile.Name(), blockCache)
 	assert.NoError(t, err)
 	it, err := table.Scan()
 	assert.NoError(t, err)

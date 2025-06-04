@@ -35,7 +35,7 @@ func NewBuilder(blockSize uint32) *Builder {
 // +-----------+-----------------+------------+-----------------+-------------------------+-------------------+--------------+--------------------+----------------+-----------------+
 // | block #0  |  checksum (4b)  |  block #1  |  checksum (4b)  |  # of met. blocks (4b)  |  metadata blocks  |  CRC32 (4b)  |  met. offset (4b)  |  bloom filter  |  bf offset (4b) |
 // +-----------+-----------------+------------+-----------------+-------------------------+-------------------+--------------+--------------------+----------------+-----------------+
-func (b *Builder) Build(id uint32, filePath string) (*SortedTable, error) {
+func (b *Builder) Build(id int32, filePath string, blockCache BlockCache) (*SortedTable, error) {
 	if err := b.refreshBlock(); err != nil {
 		return nil, fmt.Errorf("failed to refresh block: %s", err)
 	}
@@ -56,7 +56,6 @@ func (b *Builder) Build(id uint32, filePath string) (*SortedTable, error) {
 	dataChecksum := crc32.ChecksumIEEE(buf[:off])
 	binary.BigEndian.PutUint32(buf[off:off+4], dataChecksum) // block data checksum
 	off += 4
-	
 
 	blkMetaSize := estimateBlockMetadatas(b.metas)
 	metaOff := off
@@ -74,7 +73,7 @@ func (b *Builder) Build(id uint32, filePath string) (*SortedTable, error) {
 	binary.BigEndian.PutUint32(buf[off:off+4], uint32(blOff)) // bloom filter offset
 	off += 4
 
-	return b.flushSsTable(id, buf[:off], bl, filePath, metaOff)
+	return b.flushSsTable(id, buf[:off], bl, filePath, metaOff, blockCache)
 }
 
 func getSstSizeEstimate(dataSize int, blkMeta []BlockMeta, blfSize int) int {
@@ -142,7 +141,7 @@ func (b *Builder) getBloomFilter() *bloom.BloomFilter {
 	return f
 }
 
-func (b *Builder) flushSsTable(id uint32, buf []byte, bl *bloom.BloomFilter, filePath string, blockMetaOffset int) (*SortedTable, error) {
+func (b *Builder) flushSsTable(id int32, buf []byte, bl *bloom.BloomFilter, filePath string, blockMetaOffset int, blockCache BlockCache) (*SortedTable, error) {
 	headMeta := b.metas[0]
 	tailMeta := b.metas[len(b.metas)-1]
 
@@ -159,5 +158,6 @@ func (b *Builder) flushSsTable(id uint32, buf []byte, bl *bloom.BloomFilter, fil
 		blocks:          b.metas,
 		file:            fo,
 		blockMetaOffset: blockMetaOffset,
+		cache:           blockCache,
 	}, nil
 }
