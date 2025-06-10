@@ -10,27 +10,34 @@ import (
 
 var ErrIterEnded error = fmt.Errorf("iterator reached the end")
 
-type mergeIter struct {
+type iter struct {
 	m  *memTable
 	it skiplist.Iterator[types.Bytes, types.Bytes]
 }
 
-func newIter(m *memTable, lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) types.ClosableIterator {
-	return &mergeIter{
+func newRangedIter(m *memTable, lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) types.ClosableIterator {
+	return &iter{
 		m:  m,
 		it: m.list.Scan(lower, upper),
 	}
 }
 
-func (i *mergeIter) HasNext() bool {
+func newIter(m *memTable) types.ClosableIterator {
+	return &iter{
+		m:  m,
+		it: m.list.Iter(),
+	}
+}
+
+func (i *iter) HasNext() bool {
 	return i.it.HasNext()
 }
 
-func (i *mergeIter) Key() types.Bytes {
+func (i *iter) Key() types.Bytes {
 	return i.it.Key()
 }
 
-func (i *mergeIter) Next() error {
+func (i *iter) Next() error {
 	if err := i.it.Next(); err != nil {
 		if errors.Is(err, skiplist.ErrIterEnded) {
 			return ErrIterEnded
@@ -42,10 +49,10 @@ func (i *mergeIter) Next() error {
 	return nil
 }
 
-func (i *mergeIter) Value() types.Bytes {
+func (i *iter) Value() types.Bytes {
 	return i.it.Value()
 }
 
-func (i *mergeIter) Close() {
+func (i *iter) Close() {
 	i.it.Close()
 }
