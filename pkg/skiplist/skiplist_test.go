@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 	"github.com/ttn-nguyen42/go-mini-lsm/pkg/skiplist"
 )
 
@@ -82,7 +83,7 @@ func TestIterator(t *testing.T) {
 	expected := []int{1, 2, 3, 5, 10}
 	var result []int
 
-	iter := sl.Scan()
+	iter := sl.Iter()
 	defer iter.Close()
 
 	for iter.HasNext() {
@@ -109,4 +110,98 @@ func TestString(t *testing.T) {
 		assert.NotEmpty(t, res)
 		fmt.Println(res)
 	})
+}
+
+func TestScan(t *testing.T) {
+	sl, err := skiplist.New[int, int](intCmp)
+	assert.NoError(t, err)
+
+	sl.Put(1, 2)
+	sl.Put(5, 6)
+	sl.Put(3, 4)
+	sl.Put(10, 15)
+	sl.Put(2, 8)
+	sl.Put(3, 10)
+
+	// Scan [2, 5]
+	iter := sl.Scan(types.Include(2), types.Include(5))
+	defer iter.Close()
+	var keys []int
+	for iter.HasNext() {
+		keys = append(keys, iter.Key())
+		iter.Next()
+	}
+	assert.Equal(t, []int{2, 3, 5}, keys)
+
+	// Scan [3, 10]
+	iter = sl.Scan(types.Include(3), types.Include(10))
+	defer iter.Close()
+	keys = nil
+	for iter.HasNext() {
+		keys = append(keys, iter.Key())
+		iter.Next()
+	}
+	assert.Equal(t, []int{3, 5, 10}, keys)
+
+	// Scan [0, 2]
+	iter = sl.Scan(types.Include(0), types.Include(2))
+	defer iter.Close()
+	keys = nil
+	for iter.HasNext() {
+		keys = append(keys, iter.Key())
+		iter.Next()
+	}
+	assert.Equal(t, []int{1, 2}, keys)
+
+	// Scan (6, 9) (no results)
+	iter = sl.Scan(types.Exclude(6), types.Exclude(9))
+	defer iter.Close()
+	keys = nil
+	for iter.HasNext() {
+		keys = append(keys, iter.Key())
+		iter.Next()
+	}
+	assert.Empty(t, keys)
+}
+
+func TestScan_ExclusiveBounds(t *testing.T) {
+	sl, err := skiplist.New[int, int](intCmp)
+	assert.NoError(t, err)
+
+	sl.Put(1, 2)
+	sl.Put(5, 6)
+	sl.Put(3, 4)
+	sl.Put(10, 15)
+	sl.Put(2, 8)
+	sl.Put(3, 10)
+
+	// Scan (2, 10) -- exclusive bounds
+	iter := sl.Scan(types.Exclude(2), types.Exclude(10))
+	defer iter.Close()
+	var keys []int
+	for iter.HasNext() {
+		keys = append(keys, iter.Key())
+		iter.Next()
+	}
+	assert.Equal(t, []int{3, 5}, keys)
+
+	// Scan (1, 3) -- exclusive bounds
+	iter = sl.Scan(types.Exclude(1), types.Exclude(3))
+	defer iter.Close()
+	keys = nil
+	for iter.HasNext() {
+		keys = append(keys, iter.Key())
+		iter.Next()
+	}
+	assert.Equal(t, []int{2}, keys)
+
+	// Scan (0, 1) -- exclusive bounds, should be empty
+	iter = sl.Scan(types.Exclude(0), types.Exclude(1))
+	defer iter.Close()
+	keys = nil
+	for iter.HasNext() {
+		keys = append(keys, iter.Key())
+		iter.Next()
+	}
+	assert.Empty(t, keys)
 }

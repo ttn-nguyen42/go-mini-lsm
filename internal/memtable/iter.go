@@ -15,10 +15,10 @@ type mergeIter struct {
 	it skiplist.Iterator[types.Bytes, types.Bytes]
 }
 
-func newIter(m *memTable) types.ClosableIterator {
+func newIter(m *memTable, lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) types.ClosableIterator {
 	return &mergeIter{
 		m:  m,
-		it: m.list.Scan(),
+		it: m.list.Scan(lower, upper),
 	}
 }
 

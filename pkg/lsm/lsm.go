@@ -14,7 +14,7 @@ type LSM interface {
 	Delete(key types.Bytes)
 	Get(key types.Bytes) (types.Bytes, bool)
 	Sync()
-	Scan() Iterator
+	Scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) Iterator
 	Transaction()
 }
 
@@ -149,14 +149,14 @@ func (m *lsm) Transaction() {
 	panic("unimplemented")
 }
 
-func (m *lsm) Scan() Iterator {
+func (m *lsm) Scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) Iterator {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
-	return m.scan()
+	return m.scan(lower, upper)
 }
 
-func (m *lsm) scan() Iterator {
+func (m *lsm) scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) Iterator {
 	tables := make([]memtable.MemTable, 0, len(m.immutTables)+1)
 
 	tables = append(tables, m.immutTables...)

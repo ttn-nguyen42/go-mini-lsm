@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+
+	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
 
 // SkipList is a generic interface for a skip list data structure.
@@ -14,7 +16,8 @@ type SkipList[K, V any] interface {
 	Delete(key K) bool
 	Size() int
 	Put(key K, value V)
-	Scan() Iterator[K, V]
+	Scan(lower types.Bound[K], upper types.Bound[K]) Iterator[K, V]
+	Iter() Iterator[K, V]
 	String() string
 }
 
@@ -198,6 +201,22 @@ func (s *skipListImpl[K, V]) getClosest(start *node[K, V], key K, level int) *no
 			break
 		}
 
+		iter = cell.next
+		cell = iter.getCell(level)
+	}
+
+	return iter
+}
+
+func (s *skipListImpl[K, V]) getClosestToBound(start *node[K, V], lower types.Bound[K], level int) *node[K, V] {
+	iter := start
+	cell := iter.getCell(level)
+	cmp := types.Comparator[K](s.cmp)
+
+	for cell != nil && cell.next != s.tail {
+		if !lower.IsBefore(cell.next.key, cmp) {
+			break
+		}
 		iter = cell.next
 		cell = iter.getCell(level)
 	}

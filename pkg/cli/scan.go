@@ -3,6 +3,7 @@ package cli
 import (
 	"io"
 
+	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 	"github.com/ttn-nguyen42/go-mini-lsm/pkg/lsm"
 )
 
@@ -20,7 +21,7 @@ func (c *scanCmd) Execute(args []string) (bool, error) {
 		return true, nil
 	}
 
-	iter := c.lsm.Scan()
+	iter := c.lsm.Scan(types.Bound[types.Bytes]{}, types.Bound[types.Bytes]{})
 	defer iter.Close()
 
 	for iter.HasNext() {

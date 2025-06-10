@@ -12,7 +12,7 @@ type MemTable interface {
 	Put(key, value types.Bytes)
 	Get(key types.Bytes) (types.Bytes, bool)
 	Size() int
-	Scan() types.ClosableIterator
+	Scan(l types.Bound[types.Bytes], r types.Bound[types.Bytes]) types.ClosableIterator
 	Id() int
 }
 
@@ -53,8 +53,8 @@ func (m *memTable) Size() int {
 	return int(m.size.Load())
 }
 
-func (m *memTable) Scan() types.ClosableIterator {
-	return newIter(m)
+func (m *memTable) Scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) types.ClosableIterator {
+	return newIter(m, lower, upper)
 }
 
 func (m *memTable) Id() int {

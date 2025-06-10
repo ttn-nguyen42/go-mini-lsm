@@ -44,7 +44,7 @@ func NewMergeIter(tables []memtable.MemTable) *MergeIter {
 	orgIter := make([]types.ClosableIterator, 0, len(tables))
 	wp := make([]*memTableIterWrapper, 0, len(tables))
 	for _, tb := range tables {
-		it := tb.Scan()
+		it := tb.Scan(types.Bound[types.Bytes]{}, types.Bound[types.Bytes]{})
 
 		if !it.HasNext() {
 			it.Close()
