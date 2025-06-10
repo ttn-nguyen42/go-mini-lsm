@@ -25,11 +25,15 @@ type lsm struct {
 
 	opts *Options
 
-	memTableId  atomic.Int32
+	memTableId atomic.Int32
+	sstId      atomic.Int32
+
 	currTable   memtable.MemTable
 	immutTables []memtable.MemTable
 
 	l0SsTables []sst.SortedTable
+	sstLevels  [][]int32
+	ssTables   map[int32][]sst.SortedTable
 
 	iterCount int
 }
@@ -38,12 +42,15 @@ func New(options ...Option) LSM {
 	return &lsm{
 		opts:        getOptions(options...),
 		memTableId:  atomic.Int32{},
+		sstId:       atomic.Int32{},
 		immutTables: make([]memtable.MemTable, 0),
-		state:       sync.Mutex{},
-		rw:          sync.RWMutex{},
 		currTable:   memtable.New(0),
 		l0SsTables:  make([]sst.SortedTable, 0),
+		state:       sync.Mutex{},
+		rw:          sync.RWMutex{},
 		iterCount:   0,
+		sstLevels:   make([][]int32, 0, 3),
+		ssTables:    make(map[int32][]sst.SortedTable),
 	}
 }
 
@@ -166,5 +173,17 @@ func (m *lsm) scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes
 	memTables = append(memTables, m.immutTables...)
 	memTables = append(memTables, m.currTable)
 
-	return NewIter(memTables, m.l0SsTables, lower, upper)
+	tablesByLevel := make([][]sst.SortedTable, 0, len(m.sstLevels))
+	for _, lvlTableIds := range m.sstLevels {
+		tableOnLvl := make([]sst.SortedTable, 0, len(lvlTableIds))
+
+		for _, id := range lvlTableIds {
+			table := m.ssTables[id]
+			tableOnLvl = append(tableOnLvl, table...)
+		}
+
+		tablesByLevel = append(tablesByLevel, tableOnLvl)
+	}
+
+	return NewIter(memTables, m.l0SsTables, tablesByLevel, lower, upper)
 }

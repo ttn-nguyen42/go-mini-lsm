@@ -8,8 +8,6 @@ import (
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
 
-var ErrIterEnd error = fmt.Errorf("iterator ended")
-
 type iter struct {
 	table    *SortedTable
 	blkIter  types.SeekableIterator
@@ -50,7 +48,7 @@ func (i *iter) Key() types.Bytes {
 func (i *iter) Next() error {
 	err := i.blkIter.Next()
 	if err != nil {
-		if !errors.Is(err, block.ErrIterEnd) {
+		if !errors.Is(err, types.ErrIterEnd) {
 			return err
 		}
 		i.blkIndex += 1
@@ -60,7 +58,7 @@ func (i *iter) Next() error {
 		}
 		if !ok {
 			i.blkIter = nil
-			return ErrIterEnd
+			return types.ErrIterEnd
 		}
 		i.blkIter = blk.Scan()
 	}

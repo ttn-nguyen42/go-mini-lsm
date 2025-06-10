@@ -71,7 +71,7 @@ func TestSSTIteratorEmpty(t *testing.T) {
 	assert.NoError(t, err)
 	it, err := table.Scan()
 	assert.NoError(t, err)
-	assert.Error(t, sst.ErrIterEnd, it.HasNext())
+	assert.Error(t, types.ErrIterEnd, it.HasNext())
 }
 
 func TestSSTIteratorMultiBlock(t *testing.T) {

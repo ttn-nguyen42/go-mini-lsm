@@ -6,8 +6,6 @@ import (
 	"github.com/ttn-nguyen42/go-mini-lsm/pkg/heap"
 )
 
-var ErrIterEnd error = fmt.Errorf("iterator ended")
-
 type heapWrapper struct {
 	id   int
 	iter Iterator

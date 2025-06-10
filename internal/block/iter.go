@@ -3,12 +3,9 @@ package block
 import (
 	"bytes"
 	"errors"
-	"fmt"
 
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
-
-var ErrIterEnd = fmt.Errorf("iterator reached the end")
 
 type iter struct {
 	blk  *Block
@@ -62,7 +59,7 @@ func (i *iter) Next() error {
 func (i *iter) Seek(idx int) error {
 	if idx >= len(i.blk.offsets) {
 		i.entr = nil
-		return ErrIterEnd
+		return types.ErrIterEnd
 	}
 
 	offset := i.blk.offsets[idx]

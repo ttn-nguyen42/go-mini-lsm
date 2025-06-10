@@ -2,13 +2,10 @@ package memtable
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 	"github.com/ttn-nguyen42/go-mini-lsm/pkg/skiplist"
 )
-
-var ErrIterEnded error = fmt.Errorf("iterator reached the end")
 
 type iter struct {
 	m  *memTable
@@ -40,7 +37,7 @@ func (i *iter) Key() types.Bytes {
 func (i *iter) Next() error {
 	if err := i.it.Next(); err != nil {
 		if errors.Is(err, skiplist.ErrIterEnded) {
-			return ErrIterEnded
+			return types.ErrIterEnd
 		}
 
 		return err
