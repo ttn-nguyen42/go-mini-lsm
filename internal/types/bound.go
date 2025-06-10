@@ -45,7 +45,7 @@ func Exclude[T any](data T) Bound[T] {
 
 type Comparator[T any] func(a, b T) int
 
-func BoundOverlap[T any](l Bound[T], r Bound[T], data T, compare Comparator[T]) bool {
+func IsWithinBoundary[T any](l Bound[T], r Bound[T], data T, compare Comparator[T]) bool {
 	compareLower := compare(data, l.data)
 	if l.included {
 		if compareLower < 0 {
@@ -67,5 +67,19 @@ func BoundOverlap[T any](l Bound[T], r Bound[T], data T, compare Comparator[T]) 
 		}
 	}
 
+	return true
+}
+
+func AreBoundariesOverlap[T any](l1 Bound[T], r1 Bound[T], l2 Bound[T], r2 Bound[T], cmp Comparator[T]) bool {
+	// If l1 > r2, intervals do not overlap
+	cmpl1r2 := cmp(l1.data, r2.data)
+	if cmpl1r2 > 0 || (cmpl1r2 == 0 && (!l1.included || !r2.included)) {
+		return false
+	}
+	// If l2 > r1, intervals do not overlap
+	cmpl2r1 := cmp(l2.data, r1.data)
+	if cmpl2r1 > 0 || (cmpl2r1 == 0 && (!l2.included || !r1.included)) {
+		return false
+	}
 	return true
 }

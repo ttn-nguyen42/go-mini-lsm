@@ -129,3 +129,9 @@ func (s *SortedTable) Scan() (types.Iterator, error) {
 
 	return newIter(s), nil
 }
+
+func (s *SortedTable) OverlapKeyRange(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) bool {
+	sstBoundLower, sstBoundUpper := types.Include(s.firstKey), types.Include(s.lastKey)
+
+	return types.AreBoundariesOverlap(sstBoundLower, sstBoundUpper, lower, upper, types.BytesComparator)
+}

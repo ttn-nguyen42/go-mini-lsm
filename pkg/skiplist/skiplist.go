@@ -21,8 +21,6 @@ type SkipList[K, V any] interface {
 	String() string
 }
 
-type Comparator[K any] func(a, b K) int
-
 type skipListImpl[K, V any] struct {
 	opts *Options
 
@@ -31,10 +29,10 @@ type skipListImpl[K, V any] struct {
 	lock    sync.RWMutex
 	random  *rand.Rand
 	curSize int
-	cmp     Comparator[K]
+	cmp     types.Comparator[K]
 }
 
-func New[K, V any](cmp Comparator[K], options ...Option) (SkipList[K, V], error) {
+func New[K, V any](cmp types.Comparator[K], options ...Option) (SkipList[K, V], error) {
 	opts, err := getOptions(options...)
 	if err != nil {
 		return nil, err

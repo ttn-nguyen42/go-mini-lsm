@@ -1,7 +1,6 @@
 package memtable
 
 import (
-	"bytes"
 	"sync/atomic"
 
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
@@ -32,9 +31,7 @@ func New(id int) MemTable {
 }
 
 func newSkipList() skiplist.SkipList[types.Bytes, types.Bytes] {
-	res, _ := skiplist.New[types.Bytes, types.Bytes](
-		func(a, b types.Bytes) int { return bytes.Compare(a, b) },
-		skiplist.WithMaxLevel(20))
+	res, _ := skiplist.New[types.Bytes, types.Bytes](types.BytesComparator, skiplist.WithMaxLevel(20))
 
 	return res
 }

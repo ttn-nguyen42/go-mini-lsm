@@ -67,11 +67,11 @@ func (l *listIter[K, V]) HasNext() bool {
 	if l.done {
 		return false
 	}
-	return l.cur != nil && l.cur != l.list.tail && types.BoundOverlap(l.lower, l.upper, l.cur.key, l.cmp)
+	return l.cur != nil && l.cur != l.list.tail && types.IsWithinBoundary(l.lower, l.upper, l.cur.key, l.cmp)
 }
 
 func (l *listIter[K, V]) Key() K {
-	if l.done || l.cur == nil || l.cur == l.list.tail || !types.BoundOverlap(l.lower, l.upper, l.cur.key, l.cmp) {
+	if l.done || l.cur == nil || l.cur == l.list.tail || !types.IsWithinBoundary(l.lower, l.upper, l.cur.key, l.cmp) {
 		panic("iterator has ended")
 	}
 	return l.cur.key
@@ -82,7 +82,7 @@ func (l *listIter[K, V]) Next() error {
 		return ErrIterEnded
 	}
 
-	if l.cur == nil || l.cur == l.list.tail || !types.BoundOverlap(l.lower, l.upper, l.cur.key, l.cmp) {
+	if l.cur == nil || l.cur == l.list.tail || !types.IsWithinBoundary(l.lower, l.upper, l.cur.key, l.cmp) {
 		l.done = true
 		l.list.lock.RUnlock()
 		return ErrIterEnded
@@ -93,7 +93,7 @@ func (l *listIter[K, V]) Next() error {
 }
 
 func (l *listIter[K, V]) Value() V {
-	if l.done || l.cur == nil || l.cur == l.list.tail || !types.BoundOverlap(l.lower, l.upper, l.cur.key, l.cmp) {
+	if l.done || l.cur == nil || l.cur == l.list.tail || !types.IsWithinBoundary(l.lower, l.upper, l.cur.key, l.cmp) {
 		panic("iterator has ended")
 	}
 
