@@ -22,7 +22,6 @@ func (c *scanCmd) Execute(args []string) (bool, error) {
 	}
 
 	iter := c.lsm.Scan(types.Bound[types.Bytes]{}, types.Bound[types.Bytes]{})
-	defer iter.Close()
 
 	for iter.HasNext() {
 		key := iter.Key()

@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/memtable"
+	"github.com/ttn-nguyen42/go-mini-lsm/internal/sst"
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
 
@@ -14,7 +15,7 @@ type LSM interface {
 	Delete(key types.Bytes)
 	Get(key types.Bytes) (types.Bytes, bool)
 	Sync()
-	Scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) Iterator
+	Scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) types.Iterator
 	Transaction()
 }
 
@@ -28,6 +29,8 @@ type lsm struct {
 	currTable   memtable.MemTable
 	immutTables []memtable.MemTable
 
+	l0SsTables []sst.SortedTable
+
 	iterCount int
 }
 
@@ -39,6 +42,7 @@ func New(options ...Option) LSM {
 		state:       sync.Mutex{},
 		rw:          sync.RWMutex{},
 		currTable:   memtable.New(0),
+		l0SsTables:  make([]sst.SortedTable, 0),
 		iterCount:   0,
 	}
 }
@@ -149,18 +153,18 @@ func (m *lsm) Transaction() {
 	panic("unimplemented")
 }
 
-func (m *lsm) Scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) Iterator {
+func (m *lsm) Scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) types.Iterator {
 	m.rw.RLock()
 	defer m.rw.RUnlock()
 
 	return m.scan(lower, upper)
 }
 
-func (m *lsm) scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) Iterator {
-	tables := make([]memtable.MemTable, 0, len(m.immutTables)+1)
+func (m *lsm) scan(lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) types.Iterator {
+	memTables := make([]memtable.MemTable, 0, len(m.immutTables)+1)
 
-	tables = append(tables, m.immutTables...)
-	tables = append(tables, m.currTable)
+	memTables = append(memTables, m.immutTables...)
+	memTables = append(memTables, m.currTable)
 
-	return NewIter(tables)
+	return NewIter(memTables, m.l0SsTables, lower, upper)
 }

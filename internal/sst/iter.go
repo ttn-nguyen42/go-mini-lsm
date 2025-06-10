@@ -16,7 +16,7 @@ type iter struct {
 	blkIndex int
 }
 
-func newIter(table *SortedTable) types.Iterator {
+func newIter(table *SortedTable) types.SeekableIterator {
 	first, ok, err := table.Block(0)
 	if err != nil {
 		if errors.Is(err, block.ErrBlockEmpty) {
@@ -70,4 +70,36 @@ func (i *iter) Next() error {
 
 func (i *iter) Value() types.Bytes {
 	return i.blkIter.Value()
+}
+
+func (i *iter) Seek(idx int) error {
+	blk, _, err := i.table.Block(idx)
+	if err != nil {
+		return err
+	}
+	blkIter := blk.Scan()
+
+	i.blkIndex = idx
+	i.blkIter = blkIter
+	return nil
+
+}
+
+func (i *iter) SeekToKey(key types.Bytes) error {
+	for idx, meta := range i.table.blocks {
+		if types.BytesComparator(key, meta.FirstKey) < 0 {
+			continue
+		}
+		err := i.Seek(idx)
+		if err != nil {
+			return err
+		}
+		err = i.blkIter.SeekToKey(key)
+		if err != nil {
+			return err
+		}
+		break
+	}
+
+	return nil
 }

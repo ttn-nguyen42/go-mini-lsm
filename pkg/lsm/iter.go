@@ -4,30 +4,28 @@ import (
 	"fmt"
 
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/memtable"
+	"github.com/ttn-nguyen42/go-mini-lsm/internal/sst"
 	"github.com/ttn-nguyen42/go-mini-lsm/internal/types"
 )
 
 var ErrIterEnded error = fmt.Errorf("iterator has reached the end")
 
-type Iterator interface {
-	Key() types.Bytes
-	Value() types.Bytes
-	Next() error
-	HasNext() bool
-	Close()
-}
-
 type lsmIter struct {
-	mergeIter *MergeIter
-	done      bool
+	memTableIters  types.ClosableIterator
+	l0SsTableIters types.Iterator
+	done           bool
+	upper          types.Bound[types.Bytes]
+	lower          types.Bound[types.Bytes]
 }
 
-func NewIter(tables []memtable.MemTable) Iterator {
-	mergeIter := NewMergeIter(tables)
+func NewIter(tables []memtable.MemTable, ssTables []sst.SortedTable, lower types.Bound[types.Bytes], upper types.Bound[types.Bytes]) types.ClosableIterator {
 
 	lsmIter := &lsmIter{
-		mergeIter: mergeIter,
-		done:      !mergeIter.HasNext(),
+		memTableIters:  nil,
+		l0SsTableIters: nil,
+		done:           true,
+		lower:          lower,
+		upper:          upper,
 	}
 	lsmIter.skipToNonDeleted()
 
@@ -35,19 +33,19 @@ func NewIter(tables []memtable.MemTable) Iterator {
 }
 
 func (l *lsmIter) Close() {
-	l.mergeIter.Close()
+	l.memTableIters.Close()
 }
 
 func (l *lsmIter) HasNext() bool {
-	return l.mergeIter.HasNext()
+	return l.memTableIters.HasNext()
 }
 
 func (l *lsmIter) Key() types.Bytes {
-	return l.mergeIter.Key()
+	return l.memTableIters.Key()
 }
 
 func (l *lsmIter) Value() types.Bytes {
-	return l.mergeIter.Value()
+	return l.memTableIters.Value()
 }
 
 func (l *lsmIter) Next() error {
@@ -63,9 +61,9 @@ func (l *lsmIter) Next() error {
 }
 
 func (l *lsmIter) next() error {
-	l.mergeIter.Next()
+	l.memTableIters.Next()
 
-	if !l.mergeIter.HasNext() {
+	if !l.memTableIters.HasNext() {
 		l.done = true
 		return ErrIterEnded
 	}
