@@ -70,6 +70,13 @@ func IsWithinBoundary[T any](l Bound[T], r Bound[T], data T, compare Comparator[
 	return true
 }
 
+func IsWithinRange[T any](l T, r T, data T, compare Comparator[T]) bool {
+	lb := Include(l)
+	rb := Include(r)
+
+	return IsWithinBoundary(lb, rb, data, compare)
+}
+
 func AreBoundariesOverlap[T any](l1 Bound[T], r1 Bound[T], l2 Bound[T], r2 Bound[T], cmp Comparator[T]) bool {
 	// If l1 > r2, intervals do not overlap
 	cmpl1r2 := cmp(l1.data, r2.data)

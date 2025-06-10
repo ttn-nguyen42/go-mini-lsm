@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -22,8 +23,12 @@ type cli struct {
 }
 
 func newCli() *cli {
+	lsm, err := lsm.New()
+	if err != nil {
+		log.Fatal(err)
+	}
 	c := &cli{
-		lsm:  lsm.New(),
+		lsm:  lsm,
 		cmds: make([]command, 0),
 		buf:  os.Stdout,
 	}
